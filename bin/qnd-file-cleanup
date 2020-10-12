@@ -1,0 +1,96 @@
+#!/usr/bin/sh
+#
+# Name: Quick and Dirty File Cleanup Tool
+# Version: 0.2.1.0
+# Date: 2020-10-11
+# Author: MMillar
+# https://github.com/mmillar-bolis
+# http://www.bolis.com
+#
+# Description:
+# A simple script to clean up metadata junk files from commercial operating
+# systems.
+#
+
+# ---
+# Variables Section
+# ---
+
+## Environment
+PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
+export PATH
+
+## User Configurable
+directory='/mnt/zvolume00'
+
+## Private
+help=0
+verbose=0
+vmsg='VERBOSE: '
+is_admin=0
+
+# ---
+# Functions Section
+# ---
+
+# Display help text
+show_usage() {
+    printf "Usage: ${0} [OPTIONS]... [PATH]...\n"
+    printf "  -d    Directory path\n"
+    printf "  -h    Display help\n"
+    printf "  -v    Display verbose\n\n"
+}
+
+# Some functions here
+clean_files() {
+    find "${directory}" \( -name 'thumbs.db' -or -name '.DS_Store' -or -name "._*" \) -delete
+}
+
+# The main function which calls the others
+main() {
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Directory: ${directory}\n"
+    fi
+
+    if [ $is_admin -eq 1 ]; then
+        clean_files
+    elif [ $help -eq 1 ]; then
+        show_usage
+    else
+        printf "Please run as root.\n"
+    fi
+}
+
+# ---
+# Script Section
+# ---
+
+# True/false check for admin
+if [ $(id -u) -ne 0 ]; then
+    is_admin=0
+else
+    is_admin=1
+fi
+
+# Case will treat the specified commandline values as optional arguments.
+# Shift jumps to the next word to be included as part of an arg. The while loop
+# repeats scanning for matching arguments until there are no more on the
+# command line and it finally breaks.
+while :; do
+    case "${1}" in
+        -d) shift; directory="${1}";;
+        -h) help=1;;
+        -v) verbose=1;;
+        --) shift; break;;
+        -*) help=1;;
+        *) break;;
+    esac
+    shift
+done
+
+# Run main function after processing arguments. Pass all arguments into the
+# function.
+main "$@"
+
+# Exit with last status
+exit $?

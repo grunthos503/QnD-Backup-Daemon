@@ -1,0 +1,204 @@
+#!/usr/bin/sh
+#
+# Name: Quick and Dirty Backup Tool
+# Version: 0.2.1.0
+# Date: 2020-10-11
+# Author: MMillar
+# https://github.com/mmillar-bolis
+# http://www.bolis.com
+#
+# Description:
+# A simple script wrapper for rsync.
+#
+
+# ---
+# Variables Section
+# ---
+
+## Environment
+PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
+export PATH
+
+## User Configurable
+local=0
+source_directory='/mnt/zvolume00/'
+destination_directory='/mnt/volume0/'
+destination_host='backup00'
+destination_user='netbackup'
+
+## Private
+help=0
+verbose=0
+vmsg='VERBOSE: '
+log_directory='/var/log/rsync'
+log_file="$log_directory/rsync-${destination_host}.log"
+time_stamp=$(date +%Y/%m/%d\ %H:%M:%S)
+
+# ---
+# Functions Section
+# ---
+
+# Display help text
+show_usage() {
+    printf "Usage: ${0} [OPTIONS]...\n"
+    printf "The Quick and Dirty Backup Tool\n\n"
+    printf "  -c HOSTNAME     Destination computer hostname\n"
+    printf "  -d DESTINATION  Destination directory path\n"
+    printf "  -h              Display help\n"
+    printf "  -l              Toggle local backup mode\n"
+    printf "  -s SOURCE       Source directory path\n"
+    printf "  -u USERNAME     Destination user name\n"
+    printf "  -v              Display verbose\n\n"
+}
+
+# If they do not exist already, create prerequisite folders and files.
+create_prereqs() {
+    help=0
+    if [ ! -d "${log_directory}" ]; then
+        mkdir "${log_directory}"
+    fi
+
+    if [ ! -f "${log_file}" ]; then
+        touch "${log_file}"
+    fi
+}
+
+# When it reaches 10Mb, archive and replace the log file.
+log_rotate() {
+    # Derive the log file size in bytes and format the result to be an integer
+    current_log_size=$(du -b "${log_file}" | tr -s '\t' ' ' | cut -d' ' -f1)
+    max_log_size=10240
+    file_stamp=$(date +%Y%m%d%T)
+
+    create_prereqs
+
+    if [ $current_log_size -gt $max_log_size ]; then   
+        mv "${log_file}" "${log_file}.$file_stamp"
+    fi
+} 
+
+# SSH with CHACHA cypher for using transfer compression with the limited math
+# instructions on the raspberry pi. Works REALLY well!
+# Make for DARN SURE you want --delete!!!
+copy_files_remote() {
+    rsync \
+        --archive \
+        --acls \
+        --xattrs \
+        --times \
+        --sparse \
+        --human-readable \
+        --delete-before \
+        --rsync-path='sudo rsync' \
+        --log-file="${log_file}" \
+        "${source_directory}" \
+        -e "ssh -c chacha20-poly1305@openssh.com" "${destination_user}@${destination_host}:${destination_directory}" > /dev/null
+}
+
+# Make for DARN SURE you want --delete!!!
+copy_files_local() {
+    rsync \
+        --archive \
+        --acls \
+        --xattrs \
+        --times \
+        --sparse \
+        --human-readable \
+        --delete-before \
+        --rsync-path='sudo rsync' \
+        --log-file="${log_file}" \
+        "${source_directory}" \
+        "${destination_directory}" > /dev/null
+}
+
+# Run the main functions related to the backup task:
+#   - rotate out the logs if necessary
+#   - stamp the beginning of a new backup task in the log
+#   - determine the backup run mode and execute it
+#   - stamp the completion of the backup task in the log
+run_backup() {
+    log_rotate
+
+    printf "################################################################################\n" >> "${log_file}"
+    printf "${time_stamp} [$$] Running rsync service via $0 (PID: $$) \n" >> "${log_file}"
+    printf "${time_stamp} [$$] Destination is ${destination_host}:${destination_directory} \n" >> "${log_file}"
+    printf "${time_stamp} [$$] Beginning backup of ${source_directory} \n" >> "${log_file}"
+
+    if [ $local -eq 1 ]; then
+        copy_files_local
+    else
+        copy_files_remote
+    fi
+
+    printf "${time_stamp} [$$] Completed backup of ${source_directory} \n" >> "${log_file}"
+}
+
+# The main function which calls the others
+main() {
+    # If in local backup mode, override the host and user options since they
+    # won't be used anyway.
+    if [ $local -eq 1 ]; then
+        if [ $verbose -eq 1 ]; then
+            printf "${vmsg}Running in LOCAL mode\n"
+        fi
+        destination_host=$HOSTNAME
+        destination_user=$USER
+    else
+        if [ $verbose -eq 1 ]; then
+            printf "${vmsg}Running in REMOTE mode\n"
+        fi
+    fi
+
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Source Directory: ${source_directory}\n"
+        printf "${vmsg}Destination Directory: ${destination_directory}\n"
+        printf "${vmsg}Destination Host: ${destination_host}\n"
+        printf "${vmsg}Destination User: ${destination_user}\n"
+    fi
+
+    if [ $is_admin -eq 1 ]; then
+        run_backup
+    elif [ $help -eq 1 ]; then
+        show_usage
+    else
+        printf "Please run as root.\n"
+    fi
+}
+
+# ---
+# Script Section
+# ---
+
+# True/false check for admin
+if [ $(id -u) -ne 0 ]; then
+    is_admin=0
+else
+    is_admin=1
+fi
+
+# Case will treat the specified commandline values as optional arguments.
+# Shift jumps to the next word to be included as part of an arg. The while loop
+# repeats scanning for matching arguments until there are no more on the
+# command line and it finally breaks.
+while :; do
+    case "${1}" in
+        -c) shift; destination_host="${1}";;
+        -d) shift; destination_directory="${1}";;
+        -h) help=1;;
+        -l) local=1;;
+        -s) shift; source_directory="${1}";;
+        -u) shift; destination_user="${1}";;
+        -v) verbose=1;;
+        --) shift; break;;
+        -*) help=1;;
+        *) break;;
+    esac
+    shift
+done
+
+# Run main function after processing arguments. Pass all arguments into the
+# function.
+main "$@"
+
+# Exit with last status
+exit $?
