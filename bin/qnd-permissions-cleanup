@@ -20,9 +20,9 @@ PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 export PATH
 
 ## User Configurable
-directory='/mnt/zvolume00/share'
-owner='michael'
-group='michael'
+directory='/mnt/path/to/source'
+owner='smb_user'
+group='smb_group'
 
 ## Private
 help=0

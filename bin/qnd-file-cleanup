@@ -21,7 +21,7 @@ PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 export PATH
 
 ## User Configurable
-directory='/mnt/zvolume00'
+directory='/mnt/path/to/source'
 
 ## Private
 help=0

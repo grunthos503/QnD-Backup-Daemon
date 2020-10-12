@@ -21,8 +21,8 @@ export PATH
 
 ## User Configurable
 local=0
-source_directory='/mnt/zvolume00/'
-destination_directory='/mnt/volume0/'
+source_directory='/mnt/path/to/source'
+destination_directory='/mnt/path/to/destination'
 destination_host='backup00'
 destination_user='netbackup'
 
