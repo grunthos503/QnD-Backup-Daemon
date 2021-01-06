@@ -1,8 +1,8 @@
 #!/usr/bin/sh
 #
 # Name: Quick and Dirty File Cleanup Tool
-# Version: 0.2.1.0
-# Date: 2020-10-11
+# Version: 0.2.2.0
+# Date: 2021-01-05
 # Author: MMillar
 # https://github.com/mmillar-bolis
 # http://www.bolis.com
@@ -21,13 +21,12 @@ PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 export PATH
 
 ## User Configurable
-directory='/mnt/path/to/source'
+directory='/mnt/destination'
 
 ## Private
 help=0
 verbose=0
 vmsg='VERBOSE: '
-is_admin=0
 
 # ---
 # Functions Section
@@ -41,15 +40,30 @@ show_usage() {
     printf "  -v    Display verbose\n\n"
 }
 
+# A true/false check to see if the script is running as root.
+check_admin() {
+    if [ $(id -u) -ne 0 ]; then
+        printf '0'
+    else
+        printf '1'
+    fi
+}
+
 # Some functions here
 clean_files() {
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Cleaning up files...\n"
+    fi
+
     find "${directory}" \( -name 'thumbs.db' -or -name '.DS_Store' -or -name "._*" \) -delete
 }
 
 # The main function which calls the others
 main() {
+    is_admin=$(check_admin)
+
     if [ $verbose -eq 1 ]; then
-        printf "${vmsg}Directory: ${directory}\n"
+        printf "${vmsg}Script-specified Directory: ${directory}\n"
     fi
 
     if [ $is_admin -eq 1 ]; then
@@ -64,13 +78,6 @@ main() {
 # ---
 # Script Section
 # ---
-
-# True/false check for admin
-if [ $(id -u) -ne 0 ]; then
-    is_admin=0
-else
-    is_admin=1
-fi
 
 # Case will treat the specified commandline values as optional arguments.
 # Shift jumps to the next word to be included as part of an arg. The while loop

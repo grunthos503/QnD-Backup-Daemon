@@ -1,8 +1,8 @@
 #!/usr/bin/sh
 #
 # Name: Quick and Dirty Permissions Cleanup Tool
-# Version: 0.2.1.0
-# Date: 2020-10-11
+# Version: 0.2.2.0
+# Date: 2021-01-05
 # Author: MMillar
 # https://github.com/mmillar-bolis
 # http://www.bolis.com
@@ -20,9 +20,9 @@ PATH=/bin:/usr/bin:/usr/local/bin:/sbin:/usr/sbin
 export PATH
 
 ## User Configurable
-directory='/mnt/path/to/source'
-owner='smb_user'
-group='smb_group'
+directory='/mnt/destination'
+owner='user'
+group='user'
 
 ## Private
 help=0
@@ -36,42 +36,58 @@ vmsg='VERBOSE: '
 # Display help text
 show_usage() {
     printf "Usage: ${0} [OPTIONS]... [PATH]...\n"
-    printf "  -d    Directory path\n"
-    printf "  -g    Group name\n"
-    printf "  -o    Owner name\n"
-    printf "  -h    Display help\n"
-    printf "  -v    Display verbose\n\n"
+    printf '  -d    Directory path\n'
+    printf '  -g    Group name\n'
+    printf '  -o    Owner name\n'
+    printf '  -h    Display help\n'
+    printf '  -v    Display verbose\n\n'
 }
 
 # A true/false check to see if the script is running as root.
-is_admin() {
+check_admin() {
     if [ $(id -u) -ne 0 ]; then
-        return 0
+        printf '0'
     else
-        return 1
+        printf '1'
     fi
 }
 
 # Set sane default permissions for respective files and folders.
 set_permissions() {
     help=0
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Setting File Permissions to [644]...\n"
+    fi
     find "${directory}" -type f -exec chmod 644 {} \;
+
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Setting Directory Permissions to [775]...\n"
+    fi
     find "${directory}" -type d -exec chmod 775 {} \;
 }
 
 # Set both the owner and group ids by name for respective files and folders.
 set_ownership() {
     help=0
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Setting File Ownership...\n"
+    fi
     find "${directory}" -type f -exec chown "${owner}":"${group}" {} \;
+
+    if [ $verbose -eq 1 ]; then
+        printf "${vmsg}Setting Directory Ownership...\n"
+    fi
     find "${directory}" -type d -exec chown "${owner}":"${group}" {} \;
 }
 
 # The main function which calls the others
 main() {
+    is_admin=$(check_admin)
+
     if [ $verbose -eq 1 ]; then
         printf "${vmsg}Owner: ${owner}\n"
         printf "${vmsg}Group: ${group}\n"
-        printf "${vmsg}Directory: ${directory}\n"
+        printf "${vmsg}Script-specified Directory: ${directory}\n"
     fi
 
     if [ $is_admin -eq 1 ]; then
@@ -87,13 +103,6 @@ main() {
 # ---
 # Script Section
 # ---
-
-# True/false check for admin
-if [ $(id -u) -ne 0 ]; then
-    is_admin=0
-else
-    is_admin=1
-fi
 
 # Case will treat the specified commandline values as optional arguments.
 # Shift jumps to the next word to be included as part of an arg. The while loop

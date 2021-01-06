@@ -1,8 +1,8 @@
 #!/usr/bin/sh
 #
 # Name: Quick and Dirty Backup Tool
-# Version: 0.2.1.0
-# Date: 2020-10-11
+# Version: 0.2.2.0
+# Date: 2020-01-05
 # Author: MMillar
 # https://github.com/mmillar-bolis
 # http://www.bolis.com
@@ -21,8 +21,8 @@ export PATH
 
 ## User Configurable
 local=0
-source_directory='/mnt/path/to/source'
-destination_directory='/mnt/path/to/destination'
+source_directory='/mnt/source/'
+destination_directory='/mnt/destination/'
 destination_host='backup00'
 destination_user='netbackup'
 
@@ -41,14 +41,23 @@ time_stamp=$(date +%Y/%m/%d\ %H:%M:%S)
 # Display help text
 show_usage() {
     printf "Usage: ${0} [OPTIONS]...\n"
-    printf "The Quick and Dirty Backup Tool\n\n"
-    printf "  -c HOSTNAME     Destination computer hostname\n"
-    printf "  -d DESTINATION  Destination directory path\n"
-    printf "  -h              Display help\n"
-    printf "  -l              Toggle local backup mode\n"
-    printf "  -s SOURCE       Source directory path\n"
-    printf "  -u USERNAME     Destination user name\n"
-    printf "  -v              Display verbose\n\n"
+    printf 'The Quick and Dirty Backup Tool\n\n'
+    printf '  -c HOSTNAME     Destination computer hostname\n'
+    printf '  -d DESTINATION  Destination directory path\n'
+    printf '  -h              Display help\n'
+    printf '  -l              Toggle local backup mode\n'
+    printf '  -s SOURCE       Source directory path\n'
+    printf '  -u USERNAME     Destination user name\n'
+    printf '  -v              Display verbose\n\n'
+}
+
+# A true/false check to see if the script is running as root.
+check_admin() {
+    if [ $(id -u) -ne 0 ]; then
+        printf '0'
+    else
+        printf '1'
+    fi
 }
 
 # If they do not exist already, create prerequisite folders and files.
@@ -69,8 +78,6 @@ log_rotate() {
     current_log_size=$(du -b "${log_file}" | tr -s '\t' ' ' | cut -d' ' -f1)
     max_log_size=10240
     file_stamp=$(date +%Y%m%d%T)
-
-    create_prereqs
 
     if [ $current_log_size -gt $max_log_size ]; then   
         mv "${log_file}" "${log_file}.$file_stamp"
@@ -135,6 +142,8 @@ run_backup() {
 
 # The main function which calls the others
 main() {
+    is_admin=$(check_admin)
+
     # If in local backup mode, override the host and user options since they
     # won't be used anyway.
     if [ $local -eq 1 ]; then
@@ -168,13 +177,6 @@ main() {
 # ---
 # Script Section
 # ---
-
-# True/false check for admin
-if [ $(id -u) -ne 0 ]; then
-    is_admin=0
-else
-    is_admin=1
-fi
 
 # Case will treat the specified commandline values as optional arguments.
 # Shift jumps to the next word to be included as part of an arg. The while loop
