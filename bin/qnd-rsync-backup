@@ -34,6 +34,8 @@ log_directory='/var/log/rsync'
 log_file="$log_directory/rsync-${destination_host}.log"
 time_stamp=$(date +%Y/%m/%d\ %H:%M:%S)
 
+$ssh_cmd="ssh -c chacha20-poly1305@openssh.com"
+
 # ---
 # Functions Section
 # ---
@@ -87,23 +89,18 @@ log_rotate() {
 # SSH with CHACHA cypher for using transfer compression with the limited math
 # instructions on the raspberry pi. Works REALLY well!
 # Make for DARN SURE you want --delete!!!
-copy_files_remote() {
-    rsync \
-        --archive \
-        --acls \
-        --xattrs \
-        --times \
-        --sparse \
-        --human-readable \
-        --delete-before \
-        --rsync-path='sudo rsync' \
-        --log-file="${log_file}" \
-        "${source_directory}" \
-        -e "ssh -c chacha20-poly1305@openssh.com" "${destination_user}@${destination_host}:${destination_directory}" > /dev/null
-}
+copy_files() {
+    $rsync_shell_arg=''
+    $rsync_shell_value=''
 
-# Make for DARN SURE you want --delete!!!
-copy_files_local() {
+    if [ $local -eq 1 ]; then
+        $full_destination="${destination_directory}"
+    else
+        $rsync_shell_arg='-e'
+        $rsync_shell_value="${ssh_cmd}"
+        $full_destination="${destination_user}@${destination_host}:${destination_directory}"
+    fi
+
     rsync \
         --archive \
         --acls \
@@ -114,8 +111,9 @@ copy_files_local() {
         --delete-before \
         --rsync-path='sudo rsync' \
         --log-file="${log_file}" \
+	$rsync_shell_arg "${rsync_shell_value}"	\
         "${source_directory}" \
-        "${destination_directory}" > /dev/null
+        "${full_destination}" > /dev/null
 }
 
 # Run the main functions related to the backup task:
@@ -131,11 +129,7 @@ run_backup() {
     printf "${time_stamp} [$$] Destination is ${destination_host}:${destination_directory} \n" >> "${log_file}"
     printf "${time_stamp} [$$] Beginning backup of ${source_directory} \n" >> "${log_file}"
 
-    if [ $local -eq 1 ]; then
-        copy_files_local
-    else
-        copy_files_remote
-    fi
+    copy_files
 
     printf "${time_stamp} [$$] Completed backup of ${source_directory} \n" >> "${log_file}"
 }
